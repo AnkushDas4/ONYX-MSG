@@ -1,32 +1,37 @@
-# 🛡️ OnyxMsg Backend (The Blind Router)
+# 💎 OnyxMsg
 
-This is the serverless backend for **OnyxMsg**. It acts as a secure "Blind Router" gateway between the Client App and Firebase Cloud Messaging (FCM).
-
-**Goal:** Hide the Firebase Service Account keys from the client device while ensuring high-priority delivery of encrypted payloads.
-
-## 🚀 Architecture
-
-1.  **Client (React Native)**: Encrypts the message locally.
-2.  **Vercel Function**: Receives the encrypted payload (does NOT decrypt it).
-3.  **Firebase (FCM)**: Delivers a `data-only` message to the recipient.
-4.  **Recipient**: Wakes up in the background -> Decrypts -> Saves to file system.
+**Secure, Encrypted, Private.**
+This repository hosts both the public **Homepage** and the **Serverless Backend** (Blind Router) for the OnyxMsg application.
 
 ---
 
-## 🛠️ API Reference
+## 📂 Project Structure
 
-### POST `/api/send`
+This is a Vercel Monorepo structure:
 
-Sends an encrypted data payload to a specific device.
+| Location | Type | Description |
+| :--- | :--- | :--- |
+| `/index.html` | **Frontend** | The public landing page for OnyxMsg. Serves as the marketing/download site. |
+| `/api/send.js` | **Backend** | The secure "Blind Router" API. Handles FCM signal dispatching. |
+| `/test.html` | **Utility** | A hidden tool to test the Backend <-> Firebase connection. |
 
-**Headers:**
-`Content-Type: application/json`
+---
+
+## 🛡️ The Backend: "Blind Router"
+
+The API located at `/api/send` acts as a security gateway.
+* **Goal:** Hide Firebase Admin keys from the client app.
+* **Privacy:** The server **cannot** decrypt messages. It only sees encrypted strings and forwards them.
+* **Priority:** Forces "High Priority" delivery to wake up devices (iOS/Android) for background processing.
+
+### API Usage
+**POST** `https://onyx-msg.vercel.app/api/send`
 
 **Body:**
 ```json
 {
   "fcmToken": "DEVICE_FCM_TOKEN",
-  "encrypted_content": "ENCRYPTED_STRING_HERE",
-  "sender_id": "USER_ID",
-  "timestamp": "ISO_TIMESTAMP"
+  "encrypted_content": "Aes256_Encrypted_String...",
+  "sender_id": "User_XYZ",
+  "timestamp": "ISO_Date_String"
 }
