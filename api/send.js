@@ -1,5 +1,7 @@
+// api/send.js
 const admin = require('firebase-admin');
 
+// --- 1. Initialize Firebase (Singleton) ---
 if (!admin.apps.length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
@@ -20,19 +22,35 @@ if (!admin.apps.length) {
 }
 
 export default async function handler(req, res) {
+  // --- 2. ENABLE CORS (Robust Config) ---
+  res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*'); 
-  res.setHeader('Access-Control-Allow-Methods', 'POST');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  // --- 3. Handle Preflight Request (OPTIONS) ---
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // --- 4. Main Logic ---
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
   try {
+    // We expect the OnyxMsg Payload format
     const { fcmToken, encrypted_content, sender_id, timestamp } = req.body;
 
     if (!fcmToken || !encrypted_content) {
       return res.status(400).json({ error: 'Missing fcmToken or encrypted_content' });
     }
 
+    // Construct the "Data Message" (Silent Wake-up)
     const message = {
       token: fcmToken,
       data: {
@@ -48,11 +66,14 @@ export default async function handler(req, res) {
       },
     };
 
+    // Send to Firebase
     const response = await admin.messaging().send(message);
+    console.log('✅ Sent:', response);
+    
     return res.status(200).json({ success: true, messageId: response });
 
   } catch (error) {
     console.error('❌ Error sending message:', error);
     return res.status(500).json({ error: 'Internal Server Error', details: error.message });
   }
-}
+      }
