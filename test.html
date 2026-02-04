@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OnyxMsg Backend Tester</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #111; color: #fff; }
+        input, button { width: 100%; padding: 15px; margin-bottom: 10px; border-radius: 5px; border: none; }
+        input { background: #333; color: #fff; }
+        button { background: #0070f3; color: white; font-weight: bold; cursor: pointer; }
+        #status { margin-top: 20px; white-space: pre-wrap; word-wrap: break-word; color: #0f0; }
+        .error { color: #f00 !important; }
+    </style>
+</head>
+<body>
+    <h2>🚀 OnyxMsg Tester</h2>
+    <p>Test your Vercel -> Firebase Connection.</p>
+    
+    <input type="text" id="token" placeholder="FCM Token (Leave empty for Auth Check)" />
+    <input type="text" id="msg" value="Test Encrypted String" />
+    <button onclick="sendMsg()">FIRE TEST MESSAGE</button>
+    
+    <div id="status"></div>
+
+    <script>
+        async function sendMsg() {
+            const status = document.getElementById('status');
+            const token = document.getElementById('token').value || "fake_token_to_test_connection";
+            
+            status.innerHTML = "⏳ Sending...";
+            status.className = "";
+
+            try {
+                const res = await fetch('/api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fcmToken: token,
+                        encrypted_content: document.getElementById('msg').value
+                    })
+                });
+                
+                const data = await res.json();
+                
+                // If we get a 500 error about "token", that is actually GOOD 
+                // because it means Vercel connected to Firebase successfully!
+                status.innerHTML = JSON.stringify(data, null, 2);
+                
+                if(!res.ok) status.className = "error";
+                
+            } catch (e) {
+                status.innerHTML = "Network Error: " + e.message;
+                status.className = "error";
+            }
+        }
+    </script>
+</body>
+</html>
