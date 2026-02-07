@@ -1,6 +1,5 @@
 import admin from 'firebase-admin';
 
-// 1. Init Admin SDK (Same as before)
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -18,51 +17,41 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-
-// ⚠️ YOUR EMAIL HERE (The only person allowed in)
 const ADMIN_EMAILS = ['udas44647@gmail.com']; 
 
 export default async function handler(req, res) {
-  // CORS Headers
+  // --- CORS HEADERS (THE FIX) ---
   res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization');
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow ALL domains (including localhost)
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+  // Handle the "Preflight" check (Browser asks permission first)
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
   try {
-    // 1. Verify the ID Token
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing Authorization Header' });
+    if (!authHeader) return res.status(401).json({ error: 'No Token' });
+
+    const token = authHeader.split('Bearer ')[1];
+    const decoded = await admin.auth().verifyIdToken(token);
+
+    if (!ADMIN_EMAILS.includes(decoded.email)) {
+      return res.status(403).json({ error: 'Not an Admin' });
     }
 
-    const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const email = decodedToken.email;
-
-    // 2. Check the VIP List
-    if (!ADMIN_EMAILS.includes(email)) {
-      return res.status(403).json({ error: 'ACCESS DENIED: You are not an Admin.' });
-    }
-
-    // 3. Fetch Data (Server-to-Server)
-    // We query the 'user_logs' collection we created earlier
     const snapshot = await db.collection('user_logs').orderBy('lastSeen', 'desc').get();
-    
-    const users = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      // Convert Timestamp to readable string for the frontend
+    const users = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(), 
       lastSeen: doc.data().lastSeen?.toDate().toISOString() 
     }));
 
-    return res.status(200).json({ success: true, users });
-
+    return res.status(200).json({ users });
   } catch (error) {
-    console.error('Admin API Error:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: error.message });
   }
-  }
+}
